@@ -152,7 +152,17 @@ def get_image_url(image_filename):
     """Generate full URL for image"""
     if not image_filename:
         return None
-    return url_for('static', filename=f'images/{image_filename}', _external=True)
+    
+    # Get the base URL from environment variable or use request.host_url
+    base_url = os.getenv('BASE_URL')
+    if not base_url and request:
+        base_url = request.host_url.rstrip('/')
+    
+    # If no base URL is available, use a relative path
+    if not base_url:
+        return f"/static/images/{image_filename}"
+    
+    return f"{base_url}/static/images/{image_filename}"
 
 # Authentication routes
 @app.route('/api/register', methods=['POST'])
@@ -619,20 +629,62 @@ def remove_favorite(item_id):
 @app.after_request
 def add_cors_headers(response):
     if request.path.startswith('/static/'):
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        response.headers['Cache-Control'] = 'public, max-age=31536000'
+        response.headers.update({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '3600',
+            'Cache-Control': 'public, max-age=31536000',
+            'Vary': 'Origin'
+        })
+        
+        # Set the correct content type for images
+        if request.path.endswith('.jpg') or request.path.endswith('.jpeg'):
+            response.headers['Content-Type'] = 'image/jpeg'
+        elif request.path.endswith('.png'):
+            response.headers['Content-Type'] = 'image/png'
+        elif request.path.endswith('.gif'):
+            response.headers['Content-Type'] = 'image/gif'
+            
     return response
 
 # Add a route to serve static files
 @app.route('/static/images/<path:filename>')
 def serve_image(filename):
+    """Serve images with proper content type and error handling"""
     try:
-        return send_from_directory(os.path.join(static_folder, 'images'), filename, as_attachment=False)
+        # Validate filename to prevent directory traversal
+        if '..' in filename or filename.startswith('/'):
+            logger.error(f"Invalid image path requested: {filename}")
+            return jsonify({'error': 'Invalid image path'}), 400
+            
+        image_path = os.path.join(static_folder, 'images')
+        logger.info(f"Attempting to serve image from: {image_path}/{filename}")
+        
+        if not os.path.exists(os.path.join(image_path, filename)):
+            logger.error(f"Image file not found: {filename}")
+            return jsonify({'error': 'Image not found'}), 404
+            
+        # Determine content type
+        content_type = 'image/jpeg'  # Default to JPEG
+        if filename.lower().endswith('.png'):
+            content_type = 'image/png'
+        elif filename.lower().endswith('.gif'):
+            content_type = 'image/gif'
+            
+        response = send_from_directory(
+            image_path,
+            filename,
+            mimetype=content_type,
+            as_attachment=False,
+            max_age=31536000
+        )
+        
+        return response
+        
     except Exception as e:
         logger.error(f"Error serving image {filename}: {str(e)}")
-        return jsonify({'error': 'Image not found'}), 404
+        return jsonify({'error': 'Error serving image'}), 500
 
 # Add new models for feedback and waste tracking
 class Feedback(db.Model):
