@@ -73,56 +73,56 @@ with app.app_context():
             "price": 15.00,
             "calories": 100,
             "category": "Beverages",
-            "image_url": "masala-chai.jpg"
+            "image_url": "static/images/masala-chai.jpg"
         },
         {
             "item_name": "Coffee",
             "price": 20.00,
             "calories": 120,
             "category": "Beverages",
-            "image_url": "coffee.jpg"
+            "image_url": "static/images/coffee.jpg"
         },
         {
             "item_name": "Masala Samosa",
             "price": 25.00,
             "calories": 250,
             "category": "Snacks",
-            "image_url": "masala-samosa.jpg"
+            "image_url": "static/images/masala-samosa.jpg"
         },
         {
             "item_name": "Chilli Samosa",
             "price": 30.00,
             "calories": 280,
             "category": "Snacks",
-            "image_url": "chilli-samosa.jpg"
+            "image_url": "static/images/chilli-samosa.jpg"
         },
         {
             "item_name": "Veg Fried Rice",
             "price": 140.00,
             "calories": 650,
             "category": "Rice & Biryani",
-            "image_url": "veg-fried-rice.jpg"
+            "image_url": "static/images/veg-fried-rice.jpg"
         },
         {
             "item_name": "Veg Pizza",
             "price": 200.00,
             "calories": 700,
             "category": "Pizza",
-            "image_url": "veg-pizza.jpg"
+            "image_url": "static/images/veg-pizza.jpg"
         },
         {
             "item_name": "Chicken Meal",
             "price": 180.00,
             "calories": 850,
             "category": "Meals",
-            "image_url": "chicken-meal.jpg"
+            "image_url": "static/images/chicken-meal.jpg"
         },
         {
             "item_name": "Veg Meal",
             "price": 150.00,
             "calories": 750,
             "category": "Meals",
-            "image_url": "veg-meal.jpg"
+            "image_url": "static/images/veg-meal.jpg"
         }
     ]
 
