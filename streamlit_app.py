@@ -22,13 +22,28 @@ logger = logging.getLogger(__name__)
 # Cache for image responses
 @lru_cache(maxsize=100)
 def get_image_content(image_url):
+    """
+    Fetch and cache image content from URL with proper error handling
+    """
     try:
-        response = requests.get(image_url, timeout=5)
-        if response.status_code == 200:
-            return response.content
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(image_url, headers=headers, timeout=10, verify=True)
+        response.raise_for_status()  # Raise an exception for bad status codes
+        
+        # Verify content type is an image
+        content_type = response.headers.get('content-type', '')
+        if not content_type.startswith('image/'):
+            logger.error(f"Invalid content type for image: {content_type}")
+            return None
+            
+        return response.content
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching image from {image_url}: {str(e)}")
         return None
     except Exception as e:
-        logger.error(f"Error loading image from {image_url}: {str(e)}")
+        logger.error(f"Unexpected error loading image from {image_url}: {str(e)}")
         return None
 
 # Page config
@@ -362,13 +377,29 @@ def display_menu():
                     with col1:
                         try:
                             # Load and display image
-                            image_url = f"{API_BASE_URL}{item['image_url']}"
-                            response = requests.get(image_url)
-                            if response.status_code == 200:
-                                image = Image.open(BytesIO(response.content))
-                                st.image(image, width=300)
+                            if item.get('image_url'):
+                                image_url = item['image_url']
+                                # If the image URL is relative, make it absolute
+                                if not image_url.startswith(('http://', 'https://')):
+                                    image_url = f"{API_BASE_URL}{image_url}"
+                                
+                                logger.info(f"Loading image from: {image_url}")
+                                image_content = get_image_content(image_url)
+                                
+                                if image_content:
+                                    try:
+                                        image = Image.open(BytesIO(image_content))
+                                        st.image(image, width=300)
+                                    except Exception as e:
+                                        logger.error(f"Error processing image for {item['item_name']}: {str(e)}")
+                                        st.warning("Unable to load image")
+                                else:
+                                    st.warning("Image not available")
+                            else:
+                                st.warning("No image available")
                         except Exception as e:
-                            st.error(f"Error loading image: {str(e)}")
+                            logger.error(f"Error handling image for {item['item_name']}: {str(e)}")
+                            st.warning("Error loading image")
                         
                         st.markdown(f"""
                             <div class="menu-item">
@@ -500,19 +531,30 @@ elif page == "Favorites":
             
             for idx, item in enumerate(items):
                 with cols[idx % 3]:
-                    if item.get('image_url'):
-                        image_url = f"{API_BASE_URL}{item['image_url']}"
-                        logger.info(f"Attempting to load image from: {image_url}")
-                        image_content = get_image_content(image_url)
-                        
-                        if image_content:
-                            try:
-                                st.image(image_content, caption=item['item_name'], use_column_width=True)
-                            except Exception as e:
-                                logger.error(f"Error displaying image for {item['item_name']}: {str(e)}")
-                                st.warning(f"Error displaying image for {item['item_name']}")
+                    try:
+                        if item.get('image_url'):
+                            image_url = item['image_url']
+                            # If the image URL is relative, make it absolute
+                            if not image_url.startswith(('http://', 'https://')):
+                                image_url = f"{API_BASE_URL}{image_url}"
+                            
+                            logger.info(f"Loading image from: {image_url}")
+                            image_content = get_image_content(image_url)
+                            
+                            if image_content:
+                                try:
+                                    image = Image.open(BytesIO(image_content))
+                                    st.image(image, caption=item['item_name'], use_column_width=True)
+                                except Exception as e:
+                                    logger.error(f"Error processing image for {item['item_name']}: {str(e)}")
+                                    st.warning("Unable to load image")
+                            else:
+                                st.warning("Image not available")
                         else:
-                            st.warning(f"Could not load image for {item['item_name']}")
+                            st.warning("No image available")
+                    except Exception as e:
+                        logger.error(f"Error handling image for {item['item_name']}: {str(e)}")
+                        st.warning("Error loading image")
                     
                     st.markdown(f"""
                         <div class="menu-item">
