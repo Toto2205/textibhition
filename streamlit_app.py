@@ -170,26 +170,24 @@ if 'user' not in st.session_state:
 if 'cart' not in st.session_state:
     st.session_state.cart = []
 
-# Update the API endpoints configuration
-BASE_URL = os.getenv('API_URL', 'http://localhost:5000/api')
+# Get API base URL from config
+API_BASE_URL = st.secrets.get("api", {}).get("base_url", "https://textibhition.onrender.com")
 
 def make_request(method, endpoint, data=None):
-    url = f"{BASE_URL}/{endpoint}"
+    """Make HTTP request to API"""
+    url = f"{API_BASE_URL}{endpoint}"
     try:
         if method == "GET":
-            response = requests.get(url, cookies=st.session_state.get('cookies', {}))
+            response = requests.get(url)
         elif method == "POST":
-            response = requests.post(url, json=data, cookies=st.session_state.get('cookies', {}))
+            response = requests.post(url, json=data)
+        elif method == "PUT":
+            response = requests.put(url, json=data)
         elif method == "DELETE":
-            response = requests.delete(url, cookies=st.session_state.get('cookies', {}))
-        
-        # Save cookies from response
-        if response.cookies:
-            st.session_state.cookies = dict(response.cookies)
-        
+            response = requests.delete(url)
         return response
-    except Exception as e:
-        st.error(f"Error connecting to server: {str(e)}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"API request failed: {str(e)}")
         return None
 
 def login(username, password):
@@ -211,7 +209,7 @@ def register(username, email, password):
     return response and response.status_code == 201
 
 def load_menu():
-    response = make_request("GET", "menu")
+    response = make_request("GET", "/api/menu")
     if response and response.status_code == 200:
         return response.json()
     st.error("Unable to load menu. Please try again later.")
@@ -341,8 +339,8 @@ def display_menu():
     st.title("Menu")
     
     # Get menu items from API
-    response = requests.get('http://localhost:5000/api/menu')
-    if response.status_code == 200:
+    response = make_request("GET", "/api/menu")
+    if response and response.status_code == 200:
         menu_items = response.json()
         
         # Group items by category
@@ -364,7 +362,7 @@ def display_menu():
                     with col1:
                         try:
                             # Load and display image
-                            image_url = f"http://localhost:5000{item['image_url']}"
+                            image_url = f"{API_BASE_URL}{item['image_url']}"
                             response = requests.get(image_url)
                             if response.status_code == 200:
                                 image = Image.open(BytesIO(response.content))
@@ -503,7 +501,7 @@ elif page == "Favorites":
             for idx, item in enumerate(items):
                 with cols[idx % 3]:
                     if item.get('image_url'):
-                        image_url = f"http://localhost:5000{item['image_url']}"
+                        image_url = f"{API_BASE_URL}{item['image_url']}"
                         logger.info(f"Attempting to load image from: {image_url}")
                         image_content = get_image_content(image_url)
                         

@@ -10,4 +10,7 @@ enableCORS = true
 enableXsrfProtection = true
 
 [browser]
-gatherUsageStats = false 
+gatherUsageStats = false
+
+[api]
+base_url = "https://textibhition.onrender.com" 
