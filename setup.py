@@ -1,3 +1,4 @@
+from setuptools import setup, find_packages
 import os
 import subprocess
 import sys
@@ -31,6 +32,35 @@ def setup_environment():
     print("\nAccess the applications at:")
     print("- Backend: http://localhost:5000")
     print("- Frontend: http://localhost:8501")
+
+def package_files(directory):
+    paths = []
+    for (path, directories, filenames) in os.walk(directory):
+        for filename in filenames:
+            paths.append(os.path.join('..', path, filename))
+    return paths
+
+# Get all static files
+static_files = package_files('static')
+
+setup(
+    name="canteen-management",
+    version="1.0",
+    packages=find_packages(),
+    include_package_data=True,
+    package_data={
+        '': static_files,
+    },
+    install_requires=[
+        'flask',
+        'flask-sqlalchemy',
+        'flask-cors',
+        'python-dotenv',
+        'streamlit',
+        'pillow',
+        'requests',
+    ],
+)
 
 if __name__ == "__main__":
     # Install requirements

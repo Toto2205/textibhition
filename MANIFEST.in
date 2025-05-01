@@ -1,0 +1,7 @@
+recursive-include static *
+recursive-include static/images *.jpg *.png *.gif
+include requirements.txt
+include runtime.txt
+include Procfile
+include .streamlit/config.toml
+include .streamlit/secrets.toml 
