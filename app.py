@@ -24,11 +24,23 @@ logger.info(f"Static folder path: {static_folder}")
 db = SQLAlchemy()
 
 def create_app():
-    app = Flask(__name__, static_folder=static_folder, static_url_path='/static')
+    app = Flask(__name__, 
+                static_folder=static_folder,
+                static_url_path='/static')
+    
+    # Configure app
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///canteen.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
-    CORS(app, supports_credentials=True)
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+    
+    # Enable CORS
+    CORS(app, 
+         supports_credentials=True,
+         resources={
+             r"/api/*": {"origins": "*"},
+             r"/static/*": {"origins": "*"}
+         })
     
     # Initialize the SQLAlchemy app
     db.init_app(app)
@@ -39,6 +51,9 @@ app = create_app()
 
 # Push an application context
 app.app_context().push()
+
+# Ensure static folders exist
+os.makedirs(os.path.join(static_folder, 'images'), exist_ok=True)
 
 # Add error handlers
 @app.errorhandler(404)
@@ -134,9 +149,10 @@ class Favorite(db.Model):
     menu_item = db.relationship('Menu', backref='favorites')
 
 def get_image_url(image_filename):
-    if image_filename:
-        return f"/static/images/{image_filename}"
-    return None
+    """Generate full URL for image"""
+    if not image_filename:
+        return None
+    return url_for('static', filename=f'images/{image_filename}', _external=True)
 
 # Authentication routes
 @app.route('/api/register', methods=['POST'])
@@ -539,15 +555,27 @@ def get_favorites():
     if 'user_id' not in session:
         return jsonify({'error': 'Please login first'}), 401
     
-    favorites = Favorite.query.filter_by(user_id=session['user_id']).all()
-    return jsonify([{
-        'id': fav.id,
-        'item_id': fav.item_id,
-        'item_name': fav.menu_item.item_name,
-        'price': fav.menu_item.price,
-        'category': fav.menu_item.category,
-        'image_url': get_image_url(fav.menu_item.image_url)
-    } for fav in favorites])
+    try:
+        favorites = Favorite.query.filter_by(user_id=session['user_id']).all()
+        favorites_data = []
+        
+        for fav in favorites:
+            item = fav.menu_item
+            item_data = {
+                'item_id': item.item_id,
+                'item_name': item.item_name,
+                'price': item.price,
+                'calories': item.calories,
+                'category': item.category,
+                'is_available': item.is_available(),
+                'image_url': get_image_url(item.image_url) if item.image_url else None
+            }
+            favorites_data.append(item_data)
+        
+        return jsonify(favorites_data)
+    except Exception as e:
+        logger.error(f"Error getting favorites: {str(e)}")
+        return jsonify({'error': 'Failed to get favorites'}), 500
 
 @app.route('/api/favorites', methods=['POST'])
 def add_favorite():
@@ -601,16 +629,10 @@ def add_cors_headers(response):
 @app.route('/static/images/<path:filename>')
 def serve_image(filename):
     try:
-        image_path = os.path.join(static_folder, 'images')
-        logger.info(f"Attempting to serve image from: {image_path}/{filename}")
-        if os.path.exists(os.path.join(image_path, filename)):
-            return send_from_directory(image_path, filename)
-        else:
-            logger.error(f"Image file not found: {filename}")
-            return jsonify({'error': 'Image not found'}), 404
+        return send_from_directory(os.path.join(static_folder, 'images'), filename, as_attachment=False)
     except Exception as e:
         logger.error(f"Error serving image {filename}: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Image not found'}), 404
 
 # Add new models for feedback and waste tracking
 class Feedback(db.Model):
